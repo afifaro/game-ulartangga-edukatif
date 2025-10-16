@@ -1,7 +1,7 @@
 # 🐍🎲 Ular Tangga Edukatif
 
 **Ular Tangga Edukatif** adalah permainan pembelajaran interaktif berbasis web yang dirancang untuk membuat kegiatan belajar menjadi lebih menyenangkan!  
-Dibuat oleh **Apipudin, Guru SDN NAGREG 05**, dengan bantuan ChatGPT.
+Dibuat oleh **Apipudin, Guru SDN NAGREG 05**
 
 ---
 
