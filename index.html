@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ular Tangga Islami — Fullscreen Full Game (Final)</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#2f6fb0; --card:#fff; --bg1:#e9f3ff; --bg2:#c7e3ff;
+}
+*{box-sizing:border-box;font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0}
+html,body{height:100%}
+body{background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#07223a;overflow:hidden}
+
+/* subtle islamic ornament in corners */
+body::before{
+  content:"";
+  position:fixed;inset:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(255,255,255,0.45) 0 6%, transparent 20%),
+    radial-gradient(circle at 92% 88%, rgba(255,255,255,0.45) 0 6%, transparent 20%);
+  mix-blend-mode:overlay;opacity:0.9;
+}
+
+/* Intro overlay */
+#intro{
+  position:fixed;inset:0;background:linear-gradient(180deg,#b6d8ff,#e8f4ff);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2200;
+  animation:fadein .9s ease;text-align:center;
+}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes fadeout{from{opacity:1}to{opacity:0}}
+#intro h1{
+  font-size:clamp(28px,6vw,64px);
+  background:linear-gradient(180deg,#fff,#bde0ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 3px 10px rgba(0,0,0,.15);
+  margin-bottom:12px;
+}
+#intro .logo{
+  width:120px;height:120px;border-radius:999px;background:rgba(255,255,255,0.6);display:inline-flex;align-items:center;justify-content:center;padding:6px;margin-bottom:18px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+}
+#intro button{
+  margin-top:12px;padding:12px 28px;border-radius:12px;border:0;background:linear-gradient(90deg,var(--accent),#4aa3ff);
+  color:#fff;font-weight:700;font-size:clamp(16px,2.6vw,20px);cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.12);
+  transition:transform .12s;
+}
+#intro button:hover{transform:translateY(-3px)}
+
+/* App layout */
+.app{display:flex;height:100vh;width:100vw;align-items:stretch}
+.board-column{flex:1;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
+.panel-column{width:380px;background:var(--card);border-left:1px solid rgba(20,60,100,0.04);padding:18px;box-shadow:-6px 0 30px rgba(12,40,70,0.03);overflow:auto}
+
+/* board box */
+#boardWrap{width:min(84vh,74vw);aspect-ratio:1;border-radius:14px;
+  background:linear-gradient(0deg,rgba(255,255,255,0.02),rgba(255,255,255,0.02)), url('papan.png') center/cover no-repeat;
+  position:relative;box-shadow:0 12px 40px rgba(10,30,60,0.06);overflow:hidden;
+}
+#boardWrap::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:
+  radial-gradient(circle at 10% 10%, rgba(255,255,255,0.04), transparent 8%),
+  radial-gradient(circle at 90% 90%, rgba(255,255,255,0.04), transparent 8%);mix-blend-mode:overlay;}
+
+/* pawn placeholders */
+.player-piece{position:absolute;width:8%;aspect-ratio:1;transition:left .28s linear, top .28s linear, transform .25s;will-change:left,top,transform}
+.pawn-img{width:100%;height:100%;object-fit:contain;border-radius:8px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.18))}
+
+/* dice 3D overlay inside board */
+.dice-overlay{position:absolute;width:150px;height:150px;perspective:900px;z-index:1500;display:none;transform:translate(-50%,-50%)}
+.dice-cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform 900ms cubic-bezier(.2,.9,.2,1);border-radius:12px}
+.dice-face{position:absolute;left:0;top:0;width:100%;height:100%;border-radius:12px;background:linear-gradient(180deg,#fff,#eef6ff);border:4px solid #eef4ff;display:block;box-shadow:0 12px 30px rgba(10,40,90,.12);overflow:hidden}
+.pips{position:relative;width:100%;height:100%}
+.pip{position:absolute;width:14px;height:14px;border-radius:50%;background:#111;transform:translate(-50%,-50%)}
+.p-center{left:50%;top:50%}.p-tl{left:26%;top:26%}.p-tr{left:74%;top:26%}.p-bl{left:26%;top:74%}.p-br{left:74%;top:74%}.p-ml{left:26%;top:50%}.p-mr{left:74%;top:50%}
+.d1{transform:translateZ(70px)}.d2{transform:rotateY(90deg) translateZ(70px)}.d3{transform:rotateY(180deg) translateZ(70px)}.d4{transform:rotateY(-90deg) translateZ(70px)}.d5{transform:rotateX(90deg) translateZ(70px)}.d6{transform:rotateX(-90deg) translateZ(70px)}
+@keyframes idle-spin{0%{transform:rotateX(0deg) rotateY(0deg)}50%{transform:rotateX(20deg) rotateY(200deg)}100%{transform:rotateX(360deg) rotateY(720deg)}}
+.dice-idle{animation:idle-spin 8s infinite linear}
+
+/* panel styling */
+.panel-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.panel-header h3{margin:0;font-size:18px;color:#08304b}
+label{font-size:13px;color:#12324a;margin-top:8px;display:block}
+input[type="text"],select,input[type="file"]{width:100%;padding:8px;margin-top:6px;border-radius:8px;border:1px solid #d5e3f3;background:#fbfeff}
+.row{display:flex;gap:8px;align-items:center}
+.btn{padding:10px;border-radius:8px;border:0;background:#f2f7ff;cursor:pointer}
+.primary{background:linear-gradient(90deg,var(--accent),#4aa3ff);color:#fff;font-weight:700}
+
+/* responsive: mobile slide-in panel */
+#menuToggle{display:none;position:fixed;right:12px;top:12px;z-index:2500;width:44px;height:44px;border-radius:10px;border:0;background:var(--accent);color:#fff;font-size:20px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.panel-slide{position:fixed;right:0;top:0;bottom:0;width:88%;max-width:420px;background:var(--card);z-index:2400;padding:16px;box-shadow:-8px 0 40px rgba(0,0,0,.25);transform:translateX(110%);transition:transform .28s ease}
+.panel-slide.show{transform:translateX(0)}
+
+@media(max-width:900px){
+  .panel-column{display:none}
+  #menuToggle{display:block}
+  .board-column{padding:8px}
+  #boardWrap{width:min(95vw,95vh);aspect-ratio:1}
+}
+
+/* extras */
+.score-list{margin-top:12px}
+.score-item{display:flex;justify-content:space-between;padding:10px;border-radius:8px;background:#fbfeff;border:1px solid #e8f0fa;margin-top:8px}
+.footer-note{font-size:13px;color:#6b7f93;margin-top:12px}
+
+/* modal & toast & bottom TF panel */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:2999}
+.modal{width:min(720px,94vw);background:linear-gradient(180deg,#fff,#f7fbff);border-radius:14px;padding:18px;box-shadow:0 18px 60px rgba(10,24,50,.35);transform:translateY(12px) scale(.98);opacity:0;transition:all .26s}
+.modal.show{transform:none;opacity:1}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;background:#0f2946;color:#fff;padding:10px 14px;border-radius:10px;display:none;z-index:3001}
+
+/* TF bottom panel */
+#trueFalsePanel{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(90deg,#7bd389,#f8e48a);padding:14px;display:none;align-items:center;gap:12px;z-index:3002;border-top-left-radius:12px;border-top-right-radius:12px;box-shadow:0 -8px 30px rgba(0,0,0,.12)}
+#trueFalsePanel .qwrap{flex:1;display:flex;flex-direction:column;gap:8px}
+#trueFalsePanel .qtext{font-weight:600;color:#073b17}
+#trueFalsePanel .qactions{display:flex;gap:10px}
+.btn-true{flex:1;padding:12px;border-radius:10px;border:0;background:#16a34a;color:#fff;font-weight:700}
+.btn-false{flex:1;padding:12px;border-radius:10px;border:0;background:#ef4444;color:#fff;font-weight:700}
+
+.spinner{width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,.12);border-top-color:#0f2946;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#quizLoading{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);display:none;align-items:center;gap:10px;background:rgba(255,255,255,0.95);padding:12px;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.18);z-index:3003}
+#debugBadge{position:fixed;right:12px;bottom:12px;background:rgba(15,40,70,0.06);padding:8px 12px;border-radius:999px;font-size:12px;color:#07223a;display:none;z-index:3005}
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="intro" role="dialog" aria-modal="true">
+  <div class="logo"><img src="logo_kkg.jpg" alt="logo" style="width:100%;height:100%;object-fit:contain;border-radius:999px"></div>
+  <h1>Ular Tangga Islami</h1>
+  <button id="startBtn">Mulai Permainan</button>
+</div>
+
+<!-- APP -->
+<div class="app" id="appRoot" aria-hidden="true" style="display:none">
+  <div class="board-column">
+    <div id="boardWrap" aria-label="Papan Ular Tangga">
+      <!-- pawns -->
+      <div class="player-piece" id="p1" style="left:6%;top:84%"><img class="pawn-img" id="img-p1" src="pawn1.png" alt="p1"></div>
+      <div class="player-piece" id="p2" style="left:18%;top:84%"><img class="pawn-img" id="img-p2" src="pawn2.png" alt="p2"></div>
+      <div class="player-piece" id="p3" style="left:30%;top:84%"><img class="pawn-img" id="img-p3" src="pawn3.png" alt="p3"></div>
+      <div class="player-piece" id="p4" style="left:42%;top:84%"><img class="pawn-img" id="img-p4" src="pawn4.png" alt="p4"></div>
+
+      <!-- dice overlay -->
+      <div class="dice-overlay" id="diceOverlay" aria-hidden="true">
+        <div class="dice-cube dice-idle" id="diceCube" role="button" aria-label="Dadu — ketuk untuk melempar">
+          <div class="dice-face d1"><div class="pips"><div class="pip p-center"></div></div></div>
+          <div class="dice-face d2"><div class="pips"><div class="pip p-tl"></div><div class="pip p-br"></div></div></div>
+          <div class="dice-face d3"><div class="pips"><div class="pip p-tl"></div><div class="pip p-center"></div><div class="pip p-br"></div></div></div>
+          <div class="dice-face d4"><div class="pips"><div class="pip p-tl"></div><div class="pip p-tr"></div><div class="pip p-bl"></div><div class="pip p-br"></div></div></div>
+          <div class="dice-face d5"><div class="pips"><div class="pip p-tl"></div><div class="pip p-tr"></div><div class="pip p-bl"></div><div class="pip p-br"></div><div class="pip p-center"></div></div></div>
+          <div class="dice-face d6"><div class="pips"><div class="pip p-tl"></div><div class="pip p-ml"></div><div class="pip p-bl"></div><div class="pip p-tr"></div><div class="pip p-mr"></div><div class="pip p-br"></div></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- right panel (desktop) -->
+  <aside class="panel-column" id="sidePanel" aria-label="Panel Kontrol">
+    <div class="panel-header"><h3>Ular Tangga 3D</h3></div>
+
+    <label>Nama pemain (kosong → jadi Komputer)</label>
+    <input id="name1" placeholder="Pemain 1">
+    <input id="name2" placeholder="Pemain 2">
+    <input id="name3" placeholder="Pemain 3">
+    <input id="name4" placeholder="Pemain 4">
+
+    <label>Jumlah pemain & Mode</label>
+    <div class="row">
+      <select id="totalPlayers"><option value="2">2 pemain</option><option value="3">3 pemain</option><option selected value="4">4 pemain</option></select>
+      <select id="mode"><option value="human">Semua Manusia</option><option value="vscomp" selected>vs Komputer</option></select>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button id="btnStart" class="btn primary">▶ Mulai Game</button>
+      <button id="reset" class="btn">🔄 Reset</button>
+    </div>
+
+    <label style="margin-top:12px">Soal (Excel)</label>
+    <div style="display:flex;gap:8px">
+      <input id="excelFile" type="file" accept=".xlsx,.xls">
+      <button id="loadBtn" class="btn">Load soal</button>
+    </div>
+    <div id="soalStatus" class="footer-note">Soal: mencoba load otomatis ...</div>
+
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button id="musicBtn" class="btn">🎵 Musik</button>
+      <button id="muteSfxBtn" class="btn">🔈 SFX</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <div style="font-weight:700">Giliran: <span id="turn">-</span></div>
+      <div id="message" style="margin-top:6px;color:#234c66;min-height:34px">Atur nama & mulai.</div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="dice-vis" id="dice-visual" style="display:inline-block;padding:10px;border-radius:8px;background:#f1f7ff;border:1px solid #e6eef7">—</div>
+    </div>
+
+    <div style="margin-top:14px">
+      <button id="btnRollDice" class="btn primary" style="width:100%;padding:12px">🎲 Lempar Dadu</button>
+    </div>
+
+    <div class="score-list" id="scoreRow">
+      <div class="score-item"><div id="label1">Pemain 1</div><div id="score1">Pos:1</div></div>
+      <div class="score-item"><div id="label2">Pemain 2</div><div id="score2">Pos:1</div></div>
+      <div class="score-item"><div id="label3">Pemain 3</div><div id="score3">Pos:1</div></div>
+      <div class="score-item"><div id="label4">Pemain 4</div><div id="score4">Pos:1</div></div>
+    </div>
+
+    <div class="footer-note">Taruh file: papan.png, logo_kkg.jpg, pawn1..pawn4.png, musik.mp3, soal.xlsx di folder yang sama.</div>
+  </aside>
+</div>
+
+<!-- mobile slide-in panel -->
+<button id="menuToggle" aria-label="Buka menu">⚙️</button>
+<div class="panel-slide" id="mobilePanel" aria-hidden="true">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h3 style="margin:0">Menu</h3>
+    <button id="closeMobile" class="btn">✖</button>
+  </div>
+  <hr style="margin:12px 0">
+  <label>Nama Pemain 1</label><input id="m_name1" placeholder="Pemain 1">
+  <label>Nama Pemain 2</label><input id="m_name2" placeholder="Pemain 2">
+  <label>Jumlah Pemain</label>
+  <select id="m_totalPlayers"><option value="2">2</option><option selected value="4">4</option></select>
+  <label>Mode</label>
+  <select id="m_mode"><option value="human">Human</option><option value="vscomp" selected>vs Komputer</option></select>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button id="m_btnStart" class="btn primary">▶ Mulai Game</button>
+    <button id="m_reset" class="btn">🔄 Reset</button>
+  </div>
+  <div style="margin-top:10px"><button id="m_btnRollDice" class="btn primary" style="width:100%">🎲 Lempar Dadu</button></div>
+</div>
+
+<!-- quiz modal (PG) -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="quizModal">
+    <h3 id="quizQ">Pertanyaan</h3>
+    <div id="quizOpts" style="display:flex;flex-direction:column;gap:8px;margin-top:12px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <div id="timerBar" style="height:8px;width:100%;background:#eef4ff;border-radius:6px;overflow:hidden"><div id="timerFill" style="height:100%;width:100%;background:linear-gradient(90deg,var(--accent),#4aa3ff)"></div></div>
+      <button id="skipBtn" class="btn">Lewati</button>
+    </div>
+  </div>
+</div>
+
+<!-- bottom TF panel -->
+<div id="trueFalsePanel">
+  <div class="qwrap">
+    <div class="qtext" id="tfQuestion">Pertanyaan...</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="small">Jawab untuk selamat dari ular</div>
+    </div>
+  </div>
+  <div class="qactions">
+    <button class="btn-true" id="btnTrue">✅ Benar</button>
+    <button class="btn-false" id="btnFalse">❌ Salah</button>
+  </div>
+</div>
+
+<div id="quizLoading"><div class="spinner"></div><div>Mengambil pertanyaan... 🧩</div></div>
+<div class="toast" id="toast">Pesan</div>
+<div id="debugBadge">Debug</div>
+
+<!-- audio -->
+<audio id="musik" src="musik.mp3" loop preload="auto"></audio>
+<audio id="bismillah" src="bismillah.mp3"></audio>
+<audio id="alhamdulillah" src="alhamdulillah.mp3"></audio>
+<audio id="astaghfirullah" src="astaghfirullah.mp3"></audio>
+<audio id="allahuakbar" src="allahuakbar.mp3"></audio>
+<audio id="sfxDadu" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="sfxBenar" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="sfxSalah" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  // --- game rules & initial data ---
+  const ladders = {6:36,32:71,42:78,54:85};
+  const snakes  = {40:4,45:13,89:48,97:38};
+
+  // players structure
+  let players = [
+    { id:'p1', pos:1, name:'Pemain 1', pawnImg:'pawn1.png', isAI:false, stats:{asked:0,correct:0,wrong:0}, consecutiveSix:0 },
+    { id:'p2', pos:1, name:'Pemain 2', pawnImg:'pawn2.png', isAI:false, stats:{asked:0,correct:0,wrong:0}, consecutiveSix:0 },
+    { id:'p3', pos:1, name:'Pemain 3', pawnImg:'pawn3.png', isAI:false, stats:{asked:0,correct:0,wrong:0}, consecutiveSix:0 },
+    { id:'p4', pos:1, name:'Pemain 4', pawnImg:'pawn4.png', isAI:false, stats:{asked:0,correct:0,wrong:0}, consecutiveSix:0 }
+  ];
+
+  let activeCount = 4;
+  let turnIdx = 0;
+  let gameOver=false;
+  let musicOn=false, sfxOn=true;
+  let questions=[]; let tfQuestions=[]; let usedIndices=new Set(); let usedTF=new Set(); let debugMode=false;
+
+  // DOM refs
+  const introEl=document.getElementById('intro');
+  const startBtn=document.getElementById('startBtn');
+  const appRoot=document.getElementById('appRoot');
+  const boardWrap=document.getElementById('boardWrap');
+  const toastEl=document.getElementById('toast');
+  const quizLoading=document.getElementById('quizLoading');
+  const tfPanel=document.getElementById('trueFalsePanel');
+  const tfQ=document.getElementById('tfQuestion');
+  const btnTrue=document.getElementById('btnTrue');
+  const btnFalse=document.getElementById('btnFalse');
+  const diceOverlay=document.getElementById('diceOverlay');
+  const diceCube=document.getElementById('diceCube');
+  const diceVisual=document.getElementById('dice-visual');
+  const musicEl=document.getElementById('musik');
+  const debugBadge=document.getElementById('debugBadge');
+
+  // Inputs and buttons
+  const nameInputs = [document.getElementById('name1'), document.getElementById('name2'), document.getElementById('name3'), document.getElementById('name4')];
+  const mNameInputs = [document.getElementById('m_name1'), document.getElementById('m_name2')];
+  const totalPlayersEl = document.getElementById('totalPlayers');
+  const modeEl = document.getElementById('mode');
+  const btnStart = document.getElementById('btnStart');
+  const resetBtn = document.getElementById('reset');
+  const btnRollDice = document.getElementById('btnRollDice');
+  const loadBtn = document.getElementById('loadBtn');
+  const excelFileInput = document.getElementById('excelFile');
+  const musicBtn = document.getElementById('musicBtn');
+  const sfxBtn = document.getElementById('muteSfxBtn');
+  const menuToggle = document.getElementById('menuToggle');
+  const mobilePanel = document.getElementById('mobilePanel');
+  const closeMobile = document.getElementById('closeMobile');
+  const mBtnStart = document.getElementById('m_btnStart');
+  const mBtnRollDice = document.getElementById('m_btnRollDice');
+
+  // helper: toast
+  function toast(msg,ms=1500){ toastEl.textContent=msg; toastEl.style.display='block'; setTimeout(()=>toastEl.style.display='none',ms); }
+
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+  function playAudio(id){ if(!sfxOn && ['sfxDadu','sfxBenar','sfxSalah'].includes(id)) return; try{ const a=document.getElementById(id); a.currentTime=0; a.play(); }catch(e){} }
+
+  // board metrics helper
+  function boardSize(){return boardWrap.getBoundingClientRect().width || 600}
+  function coords(pos, offsetX=0, offsetY=0){
+    const size=boardSize(),cell=size/10,row=Math.floor((pos-1)/10);
+    let col=(pos-1)%10; if(row%2===1) col=9-col;
+    const pad=Math.round(cell*0.12);
+    const x=Math.round(col*cell + pad + offsetX);
+    const y=Math.round(size - (row+1)*cell + pad + offsetY);
+    return {x,y,cell};
+  }
+
+  function nudgeFor(pos){ const nudges={6:{x:-6,y:2},36:{x:3,y:-6},32:{x:2,y:-3},71:{x:-6,y:4},42:{x:-3,y:3},78:{x:5,y:-5},54:{x:-4,y:2},85:{x:4,y:-8},40:{x:-6,y:2},4:{x:4,y:-6},45:{x:-4,y:1},13:{x:6,y:-8},89:{x:-3,y:2},48:{x:3,y:-4},97:{x:-8,y:-2},38:{x:6,y:2}}; return nudges[pos]||{x:0,y:0}; }
+
+  function injectPawns(){ players.forEach((p,i)=>{ const img=document.getElementById('img-'+p.id); if(img){ img.src=p.pawnImg; img.alt=p.name } const lbl=document.getElementById('label'+(i+1)); if(lbl) lbl.textContent=p.name||`Pemain ${i+1}` }); }
+
+  function updatePlayerDOM(player,index){
+    const el=document.getElementById(player.id); if(!el) return;
+    if(player.pos<=0){ el.style.display='none'; return } else el.style.display='block';
+    const nud=nudgeFor(player.pos);
+    const {x,y}=coords(player.pos,nud.x + (index%2)*8 -6, nud.y + Math.floor(index/2)*6);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    const scoreEl=document.getElementById('score'+(index+1)); if(scoreEl) scoreEl.textContent=`Pos:${player.pos}`
+  }
+  function updateAllPlayers(){ for(let i=0;i<activeCount;i++) updatePlayerDOM(players[i],i) }
+
+  // excel parse
+  function parseWorkbook(wb){
+    questions=[]; tfQuestions=[]; usedIndices.clear(); usedTF.clear();
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    rows.forEach(r=>{
+      if(!r||String(r[0]).trim()==='') return;
+      const pert=String(r[0]||'').trim();
+      const A=String(r[1]||'').trim();
+      const B=String(r[2]||'').trim();
+      const C=String(r[3]||'').trim();
+      let K=String(r[4]||'').trim().toUpperCase();
+      if(K.length>1) K=K.charAt(0);
+      if(K==='1') K='A'; else if(K==='2') K='B'; else if(K==='3') K='C';
+      if(!['A','B','C'].includes(K)) K='';
+      questions.push({pertanyaan:pert,A,B,C,Kunci:K});
+      const tfQ=String(r[5]||'').trim();
+      let tfK=String(r[6]||'').trim().toLowerCase();
+      if(tfK==='true') tfK='benar';
+      if(tfK==='false') tfK='salah';
+      if(tfQ) tfQuestions.push({pertanyaan:tfQ,kunci:tfK});
+    });
+    document.getElementById('soalStatus').textContent=`Soal dimuat: ${questions.length} PG, ${tfQuestions.length} TF`;
+  }
+
+  async function tryAutoLoad(){
+    const candidates=['soal.xlsx','soal xlsx','soal_pg.xlsx','soalPG.xlsx'];
+    for(const c of candidates){
+      try{
+        const resp=await fetch(c);
+        if(!resp.ok) continue;
+        const ab=await resp.arrayBuffer();
+        const wb=XLSX.read(ab,{type:'array'});
+        parseWorkbook(wb); return;
+      }catch(e){continue}
+    }
+    document.getElementById('soalStatus').textContent='Soal: belum dimuat — upload soal.xlsx jika perlu'
+  }
+  tryAutoLoad();
+
+  excelFileInput.addEventListener('change',e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=e2=>{ const data=new Uint8Array(e2.target.result); const wb=XLSX.read(data,{type:'array'}); parseWorkbook(wb); toast('Soal dimuat (upload)'); };
+    r.readAsArrayBuffer(f);
+  });
+  loadBtn.addEventListener('click',()=>{
+    const f=excelFileInput.files[0];
+    if(!f){ alert('Pilih file Excel'); return }
+    const r=new FileReader();
+    r.onload=e2=>{ const data=new Uint8Array(e2.target.result); const wb=XLSX.read(data,{type:'array'}); parseWorkbook(wb); toast('Soal dimuat'); };
+    r.readAsArrayBuffer(f);
+  });
+
+  function pickQuestion(){ if(questions.length===0) return null; if(usedIndices.size>=Math.max(1,Math.floor(questions.length*.85))) usedIndices.clear(); let idx,tries=0; do{ idx=Math.floor(Math.random()*questions.length); tries++; if(tries>300) break }while(usedIndices.has(idx)); usedIndices.add(idx); return questions[idx] }
+  function pickTF(){ if(tfQuestions.length===0) return null; if(usedTF.size>=Math.max(1,Math.floor(tfQuestions.length*.85))) usedTF.clear(); let idx,tries=0; do{ idx=Math.floor(Math.random()*tfQuestions.length); tries++; if(tries>300) break }while(usedTF.has(idx)); usedTF.add(idx); return tfQuestions[idx] }
+
+  // quiz modal
+  function showQuizModal(p,callback){
+    const q=pickQuestion();
+    if(!q){ toast('Soal PG belum dimuat'); callback(false); return }
+    const modal=document.getElementById('modalBackdrop'); modal.style.display='flex';
+    const inner=document.getElementById('quizModal'); inner.classList.add('show');
+    document.getElementById('quizQ').textContent=q.pertanyaan;
+    const opts=document.getElementById('quizOpts'); opts.innerHTML='';
+    let timeLeft=10;
+    const timerBar=document.getElementById('timerFill');
+    timerBar.style.width='100%';
+    const timer=setInterval(()=>{
+      timeLeft-=0.1; timerBar.style.width=(timeLeft/10*100)+'%';
+      if(timeLeft<=0){ clearInterval(timer); modal.style.display='none'; inner.classList.remove('show'); p.stats.wrong++; playAudio('sfxSalah'); callback(false); }
+    },100);
+    ['A','B','C'].forEach(L=>{
+      const txt=(L==='A'?q.A:(L==='B'?q.B:q.C))||'';
+      const btn=document.createElement('button'); btn.className='opt-btn btn'; btn.innerHTML=`<strong>${L}.</strong> ${txt}`; btn.onclick=()=>{
+        clearInterval(timer); modal.style.display='none'; inner.classList.remove('show');
+        const correct=(q.Kunci||'').toString().trim().toUpperCase();
+        if(L===correct){ p.stats.correct++; playAudio('sfxBenar'); callback(true); } else { p.stats.wrong++; playAudio('sfxSalah'); callback(false); }
+      };
+      opts.appendChild(btn);
+    });
+    document.getElementById('skipBtn').onclick=()=>{ clearInterval(timer); modal.style.display='none'; inner.classList.remove('show'); p.stats.wrong++; playAudio('sfxSalah'); callback(false) }
+  }
+
+  // occupancy
+  function handleOccupancy(current){
+    for(let i=0;i<activeCount;i++){
+      const p=players[i];
+      if(p.id!==current.id && p.pos===current.pos){
+        p.pos=1;
+        const el=document.getElementById(p.id);
+        if(el){ el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),350) }
+        playAudio('astaghfirullah'); toast(`${p.name} terlempar ke awal oleh ${current.name}`);
+      }
+    }
+  }
+
+  // movement animation
+  async function animateSteps(player,steps){
+    const el=document.getElementById(player.id);
+    for(let i=0;i<steps;i++){
+      if(player.pos>=100) break;
+      player.pos+=1;
+      if(el) el.classList.add('moving');
+      updateAllPlayers();
+      await sleep(160);
+      if(el) el.classList.remove('moving');
+      await sleep(60);
+    }
+  }
+  async function animateExactMove(player,roll){
+    const start=player.pos; let target=start+roll;
+    if(target===100){ await animateSteps(player,100-start); return }
+    else if(target<100){ await animateSteps(player,roll); return }
+    else {
+      const to100=100-start; const excess=target-100;
+      if(to100>0){ await animateSteps(player,to100) }
+      await sleep(160);
+      for(let i=0;i<excess;i++){ player.pos-=1; updateAllPlayers(); await sleep(160) }
+    }
+  }
+
+  async function handleAfterMove(cur){
+    handleOccupancy(cur);
+    updateAllPlayers();
+    if(ladders[cur.pos]){
+      const base=cur.pos;
+      const mode=document.getElementById('mode').value;
+      if(cur.isAI && mode==='vscomp'){
+        document.getElementById('message').textContent=`${cur.name} (Komputer) menjawab kuis...`;
+        await sleep(400+Math.random()*900);
+        const success=Math.random()<0.7;
+        cur.stats.asked++;
+        if(success){ cur.stats.correct++; cur.pos=ladders[base]; playAudio('alhamdulillah'); const el=document.getElementById(cur.id); if(el){ el.classList.add('jump'); setTimeout(()=>el.classList.remove('jump'),600) } toast(`${cur.name} benar — naik ke ${cur.pos}`) }
+        else { cur.stats.wrong++; cur.pos=Math.max(1,cur.pos-1); const el=document.getElementById(cur.id); if(el){ el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),300) } playAudio('astaghfirullah'); toast(`${cur.name} salah — mundur ke ${cur.pos}`) }
+      } else {
+        await new Promise(resolve=>{ showQuizModal(cur,(ok)=>{ if(ok){ cur.pos=ladders[base]; playAudio('alhamdulillah'); const el=document.getElementById(cur.id); if(el){ el.classList.add('jump'); setTimeout(()=>el.classList.remove('jump'),600) } toast(`${cur.name} benar — naik ke ${cur.pos}`) } else { cur.pos=Math.max(1,cur.pos-1); const el=document.getElementById(cur.id); if(el){ el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),300) } playAudio('astaghfirullah'); toast(`${cur.name} salah/waktu habis — mundur ke ${cur.pos}`) } updateAllPlayers(); resolve() }) })
+      }
+      handleOccupancy(cur); updateAllPlayers();
+    } else if(snakes[cur.pos]){
+      const to=snakes[cur.pos];
+      const tf = pickTF();
+      if(!tf){ cur.pos = to; playAudio('astaghfirullah'); toast(`${cur.name} kena ular — turun ke ${to}`); updateAllPlayers(); handleOccupancy(cur); updateAllPlayers(); }
+      else {
+        quizLoading.style.display='flex'; await sleep(800); quizLoading.style.display='none';
+        if(cur.isAI && document.getElementById('mode').value==='vscomp'){
+          const answerCorrect = Math.random()<0.5; await sleep(600);
+          if(answerCorrect){ cur.stats.correct++; playAudio('alhamdulillah'); toast(`${cur.name} (Komputer) jawab benar — selamat! Maju 1 langkah`); cur.pos += 1; updateAllPlayers(); }
+          else { cur.stats.wrong++; playAudio('astaghfirullah'); toast(`${cur.name} (Komputer) salah — turun ke ${to}`); cur.pos = to; updateAllPlayers(); handleOccupancy(cur); updateAllPlayers(); }
+        } else {
+          tfQ.textContent = tf.pertanyaan; tfPanel.style.display='flex'; enableDice(false);
+          const onTrue = ()=>{ tfPanel.style.display='none'; playAudio('alhamdulillah'); toast('Mantap! Kamu benar 😄 Ular nggak bisa gigit kamu! Maju 1 langkah 🪜'); cur.stats.correct++; cur.pos +=1; updateAllPlayers(); cleanup(); };
+          const onFalse = ()=>{ tfPanel.style.display='none'; playAudio('astaghfirullah'); toast('Wah, salah nih 😅 Ular berhasil menggigit kamu! 🐍'); cur.stats.wrong++; cur.pos = to; updateAllPlayers(); handleOccupancy(cur); updateAllPlayers(); cleanup(); };
+          const cleanup = ()=>{ btnTrue.removeEventListener('click', onTrue); btnFalse.removeEventListener('click', onFalse); enableDice(true); }
+          btnTrue.addEventListener('click', onTrue); btnFalse.addEventListener('click', onFalse);
+        }
+      }
+    }
+    if(cur.pos>=100){ playAudio('allahuakbar'); toast(`${cur.name} mencapai finish — Allahu Akbar!`,3000); document.getElementById('message').textContent = `${cur.name} menang! 🎉`; gameOver=true; await showEndModal(cur); }
+  }
+
+  // end modal (simple)
+  async function showEndModal(winner){
+    alert(`${winner.name} Menang!`);
+  }
+
+  // dice visual + center placement
+  const faceRotations={1:{x:0,y:0},2:{x:0,y:-90},3:{x:0,y:180},4:{x:0,y:90},5:{x:90,y:0},6:{x:-90,y:0}};
+  function positionDiceAtCell(posIndex=54){
+    const {x,y,cell} = coords(posIndex);
+    const centerX = x + cell/2;
+    const centerY = y + cell/2;
+    diceOverlay.style.left = centerX + 'px';
+    diceOverlay.style.top = centerY + 'px';
+  }
+  function showDiceAnimation(finalValue,posIndex=54,duration=900){
+    positionDiceAtCell(posIndex);
+    diceOverlay.style.display='block';
+    diceCube.classList.remove('dice-idle');
+    playAudio('sfxDadu');
+    const rx=(Math.random()*720)+720, ry=(Math.random()*720)+720;
+    const face=faceRotations[finalValue];
+    diceCube.style.transform = `rotateX(${face.x+rx}deg) rotateY(${face.y+ry}deg)`;
+    return new Promise(resolve=>{ setTimeout(()=>{ diceCube.classList.add('dice-idle'); setTimeout(()=>{ diceOverlay.style.display='none'; resolve(); },300) },duration+220 ); });
+  }
+
+  async function rollDiceVisual(prefer=null,fast=false){
+    const v=(typeof prefer==='number')?prefer:(Math.floor(Math.random()*6)+1);
+    await showDiceAnimation(v,54, fast?600:900);
+    return v;
+  }
+
+  async function playerThrow(player){
+    const isAI = player.isAI && document.getElementById('mode').value==='vscomp';
+    let roll;
+    if(isAI){ roll = Math.floor(Math.random()*6)+1; await showDiceAnimation(roll,54,600); } else { roll = await rollDiceVisual(null,false); }
+    diceVisual.textContent = roll;
+    playAudio('sfxDadu');
+    if(roll===6){ player.consecutiveSix=(player.consecutiveSix||0)+1; } else player.consecutiveSix=0;
+    await animateExactMove(player,roll);
+    updateAllPlayers();
+    await handleAfterMove(player);
+    if(roll===6 && (player.consecutiveSix||0)<3 && !gameOver){ toast(`${player.name} mendapat 6 — giliran lagi!`); if(player.isAI && document.getElementById('mode').value==='vscomp'){ await sleep(500+Math.random()*600); await playerThrow(player); } else { enableDice(true); } } else { if(player.consecutiveSix>=3) player.consecutiveSix=0; turnIdx=(turnIdx+1)%activeCount; updateTurnUI(); const next=players[turnIdx]; if(next.isAI && document.getElementById('mode').value==='vscomp' && !gameOver){ enableDice(false); await sleep(600+Math.random()*500); await playerThrow(next); } else { enableDice(!gameOver); } }
+  }
+
+  function enableDice(v){ if(v){ btnRollDice.disabled=false; diceCube.style.pointerEvents='auto'; } else { btnRollDice.disabled=true; diceCube.style.pointerEvents='none'; } }
+
+  // attach dice interactions
+  diceCube.addEventListener('click', async (e)=>{ if(gameOver) return; const current=players[turnIdx]; if(!current) return; if(current.isAI && document.getElementById('mode').value==='vscomp') return; document.getElementById('message').textContent = `${current.name} melempar dadu...`; enableDice(false); await playerThrow(current); });
+  diceCube.addEventListener('touchstart',(e)=>{ e.preventDefault(); if(gameOver) return; const current=players[turnIdx]; if(!current) return; if(current.isAI && document.getElementById('mode').value==='vscomp') return; document.getElementById('message').textContent = `${current.name} melempar dadu...`; enableDice(false); playerThrow(current); },{passive:false});
+
+  btnRollDice.addEventListener('click', async ()=>{ if(gameOver) return; const current=players[turnIdx]; if(!current) return; if(current.isAI && document.getElementById('mode').value==='vscomp') return; document.getElementById('message').textContent = `${current.name} melempar dadu...`; enableDice(false); await playerThrow(current); });
+
+  function updateTurnUI(){ if(activeCount<=0){ document.getElementById('turn').textContent='-'; return } document.getElementById('turn').textContent = players[turnIdx].name + (players[turnIdx].isAI?' 🤖':'' ) }
+
+  // start game wiring
+  async function startGame(){
+    try{
+      activeCount = parseInt(document.getElementById('totalPlayers').value,10);
+      const mode=document.getElementById('mode').value;
+      for(let i=0;i<activeCount;i++){
+        const nm=document.getElementById('name'+(i+1)).value.trim();
+        players[i].name = nm || `Pemain ${i+1}`;
+        players[i].isAI = (!nm) && (mode==='vscomp');
+        players[i].pos=1;
+        players[i].pawnImg=`pawn${i+1}.png`;
+        players[i].stats={asked:0,correct:0,wrong:0};
+        players[i].consecutiveSix=0;
+        const el=document.getElementById(players[i].id);
+        if(el){ el.style.display='block'; el.classList.remove('jump','shake','moving') }
+      }
+      for(let j=activeCount;j<4;j++){ players[j].pos=0; const el=document.getElementById(players[j].id); if(el) el.style.display='none'; const lbl=document.getElementById('label'+(j+1)); if(lbl) lbl.textContent='-'; const scr=document.getElementById('score'+(j+1)); if(scr) scr.textContent='-'; }
+      injectPawns(); const pieces=document.querySelectorAll('.player-piece'); pieces.forEach(p=>p.style.transition='none'); updateAllPlayers(); void document.body.offsetWidth; setTimeout(()=>pieces.forEach(p=>p.style.transition='left .28s linear, top .28s linear, transform .25s'),60);
+      turnIdx=0; gameOver=false; updateTurnUI(); enableDice(!(players[turnIdx].isAI && (document.getElementById('mode').value==='vscomp'))); document.getElementById('message').textContent = `Game dimulai — Giliran: ${players[turnIdx].name}`; try{ document.getElementById('bismillah').currentTime=0; document.getElementById('bismillah').play(); }catch(e){} if(musicOn){ try{ musicEl.volume=0.45; musicEl.play(); }catch(e){} } if(players[turnIdx].isAI && document.getElementById('mode').value==='vscomp'){ enableDice(false); setTimeout(()=>{ if(!gameOver) playerThrow(players[turnIdx]); },700); }
+    }catch(err){ console.error('start error',err); toast('Terjadi error saat memulai game'); }
+  }
+  window.startGame = startGame;
+
+  // UI wiring: start, reset
+  startBtn.addEventListener('click', async ()=>{
+    introEl.style.animation='fadeout .6s forwards';
+    setTimeout(async ()=>{
+      introEl.style.display='none';
+      appRoot.style.display='flex';
+      appRoot.removeAttribute('aria-hidden');
+      positionDiceAtCell(54);
+      // langsung start game (so user doesn't need to press panel start)
+      await startGame();
+    },650);
+  });
+
+  btnStart.addEventListener('click', ()=>{
+    // copy data mobile->desktop if any
+    document.getElementById('m_name1').value && (document.getElementById('name1').value = document.getElementById('m_name1').value);
+    document.getElementById('m_name2').value && (document.getElementById('name2').value = document.getElementById('m_name2').value);
+    // close mobile if open
+    mobilePanel.classList.remove('show'); mobilePanel.setAttribute('aria-hidden','true');
+    // start game
+    startGame();
+  });
+
+  document.getElementById('reset').addEventListener('click', ()=>{
+    for(let i=0;i<4;i++){ players[i].pos=1; players[i].isAI=false; players[i].stats={asked:0,correct:0,wrong:0}; const el=document.getElementById(players[i].id); if(el) el.style.display='block' }
+    activeCount=4; turnIdx=0; gameOver=false; injectPawns(); updateAllPlayers(); updateTurnUI(); document.getElementById('dice-visual').textContent='—'; enableDice(false); document.getElementById('message').textContent='Atur nama & mulai game.'; try{ musicEl.pause(); }catch(e){} toast('Game direset');
+  });
+
+  // mobile menu toggle
+  menuToggle.addEventListener('click', ()=>{ mobilePanel.classList.add('show'); mobilePanel.setAttribute('aria-hidden','false'); });
+  closeMobile.addEventListener('click', ()=>{ mobilePanel.classList.remove('show'); mobilePanel.setAttribute('aria-hidden','true'); });
+
+  mBtnStart.addEventListener('click', ()=>{
+    // copy mobile inputs to desktop
+    document.getElementById('name1').value = document.getElementById('m_name1').value;
+    document.getElementById('name2').value = document.getElementById('m_name2').value;
+    mobilePanel.classList.remove('show');
+    startGame();
+  });
+  mBtnRollDice.addEventListener('click', async ()=>{ if(gameOver) return; const current=players[turnIdx]; if(!current) { await doVisualRollOnly(); return } enableDice(false); await playerThrow(current); });
+
+  // music & sfx
+  musicBtn.addEventListener('click', ()=>{
+    musicOn = !musicOn;
+    if(musicOn){ try{ musicEl.volume=0.45; musicEl.play(); musicBtn.textContent='🔊 Musik' }catch(e){} } else { musicEl.pause(); musicBtn.textContent='🎵 Musik' }
+  });
+  sfxBtn.addEventListener('click', ()=>{ sfxOn = !sfxOn; sfxBtn.textContent = sfxOn ? '🔈 SFX' : '🔇 SFX'; });
+
+  // visual-only roll helper (if no game started)
+  async function doVisualRollOnly(){ positionDiceAtCell(54); const v=Math.floor(Math.random()*6)+1; document.getElementById('dice-visual').textContent=v; await showDiceAnimation(v,54,900); return v; }
+
+  // small debug toggle
+  (function secretDebug(){ let taps=0, timer=null; const el=document.querySelector('.panel-header h3'); if(!el) return; el.addEventListener('click',()=>{ taps++; if(taps===1){ timer=setTimeout(()=>{ taps=0 },2000) } if(taps>=3){ taps=0; clearTimeout(timer); debugMode=!debugMode; document.getElementById('debugBadge').style.display=debugMode?'block':'none'; toast('Debug '+(debugMode?'Aktif':'Matikan')); } }) })();
+
+  // ensure pawn positions update on resize
+  window.addEventListener('resize', ()=>{ updateAllPlayers(); if(diceOverlay.style.display!=='none') positionDiceAtCell(54); });
+
+  // initial setup
+  injectPawns(); updateAllPlayers(); enableDice(false); document.getElementById('message').textContent='Atur nama & mulai game.'; updateTurnUI();
+});
+</script>
+</body>
+</html>
